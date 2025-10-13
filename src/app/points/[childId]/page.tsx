@@ -1,8 +1,8 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { supabaseBrowser } from '@/src/lib/supabase';
-import { Button, Card } from '@/src/components/UI';
-import { yymm, fmtJPY } from '@/src/lib/utils';
+import { supabaseBrowser } from '@/lib/supabase-browser';
+import { Button, Card } from '@/components/UI';
+import { yymm, fmtJPY } from '@/lib/utils';
 
 export default function PointsPage({ params }: { params: { childId: string } }) {
   const sb = supabaseBrowser();

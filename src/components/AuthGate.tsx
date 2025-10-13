@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { supabaseBrowser } from '@/src/lib/supabase';
+import { supabaseBrowser } from '@/lib/supabase-browser';
 import { Button } from './UI';
 
 export default function AuthGate({ children }: { children: React.ReactNode }) {

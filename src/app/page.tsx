@@ -1,4 +1,4 @@
-import AuthGate from '@/src/components/AuthGate';
+import AuthGate from '@/components/AuthGate';
 import Link from 'next/link';
 
 export default function Page() {

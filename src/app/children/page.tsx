@@ -1,8 +1,8 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { supabaseBrowser } from '@/src/lib/supabase';
+import { supabaseBrowser } from '@/lib/supabase-browser';
 import Link from 'next/link';
-import { Card } from '@/src/components/UI';
+import { Card } from '@/components/UI';
 
 export default function ChildrenPage() {
   const sb = supabaseBrowser();

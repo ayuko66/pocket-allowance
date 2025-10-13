@@ -1,5 +1,5 @@
 import './globals.css';
-import AppShell from '@/src/components/AppShell';
+import AppShell from '@/components/AppShell';
 
 export const metadata = { title: 'Pocket Allowance MVP' };
 export default function RootLayout({ children }: { children: React.ReactNode }) {

@@ -1,8 +1,8 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { supabaseBrowser } from '@/src/lib/supabase';
-import { Button, Card } from '@/src/components/UI';
-import { yymm } from '@/src/lib/utils';
+import { supabaseBrowser } from '@/lib/supabase-browser';
+import { Button, Card } from '@/components/UI';
+import { yymm } from '@/lib/utils';
 
 export default function RulesPage({ params }: { params: { childId: string } }) {
   const sb = supabaseBrowser();
