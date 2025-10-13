@@ -17,3 +17,44 @@
 
 ## 📝 注意
 - 通知・QR連携・取消UI・Cronは未実装（MVP）。取消は**逆符号の point_entry** で代替してください。
+
+## 📁 構成
+
+```text
+.
+├── docker-compose.yml
+├── Dockerfile
+├── .env.example
+├── README.md
+├── next.config.mjs
+├── package.json
+├── postcss.config.mjs
+├── tailwind.config.ts
+├── tsconfig.json
+├── public/
+│   └── favicon.ico
+├── styles/
+│   └── globals.css
+├── src/
+│   ├── lib/
+│   │   ├── supabase.ts
+│   │   └── utils.ts
+│   ├── components/
+│   │   ├── AppShell.tsx
+│   │   ├── AuthGate.tsx
+│   │   └── UI.tsx
+│   ├── app/
+│   │   ├── layout.tsx
+│   │   ├── page.tsx
+│   │   ├── children/page.tsx
+│   │   ├── rules/[childId]/page.tsx
+│   │   ├── points/[childId]/page.tsx
+│   │   └── api/
+│   │       ├── rules/[snapshotId]/approve/route.ts
+│   │       ├── points/route.ts
+│   │       └── close-month/route.ts
+└── supabase/
+    └── schema.sql   # SupabaseのSQLエディタに貼って実行
+    
+ ```
+ 
