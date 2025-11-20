@@ -46,7 +46,7 @@ create table if not exists public.rule_approval (
 create table if not exists public.point_entry (
   id uuid primary key default gen_random_uuid(),
   child_id uuid not null references public.app_user(id) on delete cascade,
-  snapshot_id uuid not null references public.rule_snapshot(id) on delete cascade,
+  snapshot_id uuid references public.rule_snapshot(id) on delete set null, -- Nullable for ad-hoc points
   occurs_on date not null,
   delta_points int not null,
   note text,
@@ -74,7 +74,12 @@ alter table rule_approval enable row level security;
 alter table point_entry enable row level security;
 alter table monthly_summary enable row level security;
 
-create policy me_read on app_user for select using (auth.uid() = id);
+-- Allow users to read their own profile AND parents to read their linked children's profiles
+create policy me_read on app_user for select using (
+  auth.uid() = id
+  or exists(select 1 from link_parent_child l where l.child_id = id and l.parent_id = auth.uid())
+  or exists(select 1 from link_parent_child l where l.parent_id = id and l.child_id = auth.uid())
+);
 
 create policy link_read on link_parent_child for select using (auth.uid() in (parent_id, child_id));
 

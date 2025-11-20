@@ -1,95 +1,177 @@
 'use client';
+
 import { useEffect, useState } from 'react';
+import { useAuth } from '@/components/AuthProvider';
 import { supabaseBrowser } from '@/lib/supabase-browser';
-import { Button, Card } from '@/components/UI';
-import { yymm, fmtJPY } from '@/lib/utils';
+import { Card, Button } from '@/components/UI';
+import AuthGate from '@/components/AuthGate';
+import { useParams } from 'next/navigation';
+import MonthlySummary from '@/components/MonthlySummary';
 
-export default function PointsPage({ params }: { params: { childId: string } }) {
-  const sb = supabaseBrowser();
-  const [month, setMonth] = useState<string>(yymm());
-  const [snapshots, setSnapshots] = useState<any[]>([]);
-  const [snapshotId, setSnapshotId] = useState<string>('');
-  const [date, setDate] = useState<string>(new Date().toISOString().slice(0,10));
-  const [delta, setDelta] = useState<number>(1);
-  const [note, setNote] = useState('');
-  const [entries, setEntries] = useState<any[]>([]);
-  const [summary, setSummary] = useState<any>(null);
+type Rule = {
+  id: string;
+  label: string;
+  points: number;
+};
 
-  const reload = async () => {
-    const { data: snaps } = await sb.from('rule_snapshot').select('*').eq('child_id', params.childId).eq('month', month).eq('status','active');
-    setSnapshots(snaps || []);
-    setSnapshotId(snaps?.[0]?.id || '');
-    const { data: pts } = await sb.from('point_entry').select('*').eq('child_id', params.childId).order('created_at', { ascending: false });
-    setEntries(pts || []);
-    const { data: sum } = await sb.from('monthly_summary').select('*').eq('child_id', params.childId).eq('month', month).maybeSingle();
-    setSummary(sum || null);
-  };
-  useEffect(() => { reload(); }, [month]);
+type PointEntry = {
+  id: string;
+  occurs_on: string;
+  delta_points: number;
+  note: string;
+  rule_snapshot?: { label: string };
+};
 
-  const add = async () => {
-    const res = await fetch('/api/points', { method: 'POST', body: JSON.stringify({ child_id: params.childId, snapshot_id: snapshotId, occurs_on: date, delta_points: delta, note }) });
-    if (!res.ok) {
-      const js = await res.json().catch(()=>({}));
-      return alert(js.error || '登録に失敗しました（承認済みルールか、月が確定していないか確認）');
+export default function PointsPage() {
+  const { userProfile } = useAuth();
+  const params = useParams();
+  const childId = params.childId as string;
+  const [activeRules, setActiveRules] = useState<Rule[]>([]);
+  const [history, setHistory] = useState<PointEntry[]>([]);
+  const [currentMonth, setCurrentMonth] = useState(new Date().toISOString().slice(0, 7));
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().slice(0, 10));
+
+  useEffect(() => {
+    if (childId) {
+      fetchActiveRules();
+      fetchHistory();
     }
-    setNote(''); await reload();
+  }, [childId, currentMonth]);
+
+  const fetchActiveRules = async () => {
+    const supabase = supabaseBrowser();
+    const { data } = await supabase
+      .from('rule_snapshot')
+      .select('id, label, points')
+      .eq('child_id', childId)
+      .eq('month', currentMonth)
+      .eq('status', 'active');
+    setActiveRules(data || []);
   };
 
-  const closeMonth = async () => {
-    const res = await fetch('/api/close-month', { method: 'POST', body: JSON.stringify({ child_id: params.childId, month }) });
-    const js = await res.json();
-    if (!res.ok) return alert(js.error || '締めに失敗');
-    alert(`確定: ${js.total_points} pt / ${fmtJPY(js.total_yen)}`);
-    await reload();
+  const fetchHistory = async () => {
+    const supabase = supabaseBrowser();
+    const { data } = await supabase
+      .from('point_entry')
+      .select('*, rule_snapshot(label)')
+      .eq('child_id', childId)
+      .gte('occurs_on', `${currentMonth}-01`)
+      .lte('occurs_on', `${currentMonth}-31`)
+      .order('created_at', { ascending: false });
+    setHistory(data || []);
+  };
+
+  const handleAddPoint = async (rule: Rule) => {
+    if (!userProfile) return;
+    const supabase = supabaseBrowser();
+    const { error } = await supabase.from('point_entry').insert({
+      child_id: childId,
+      snapshot_id: rule.id,
+      occurs_on: selectedDate,
+      delta_points: rule.points,
+      note: rule.label,
+      created_by: userProfile.id
+    });
+
+    if (error) alert(error.message);
+    else fetchHistory();
+  };
+
+  const handleAdhocPoint = async (points: number, note: string) => {
+    if (!userProfile) return;
+    const supabase = supabaseBrowser();
+    const { error } = await supabase.from('point_entry').insert({
+      child_id: childId,
+      snapshot_id: null, // Ad-hoc
+      occurs_on: selectedDate,
+      delta_points: points,
+      note: note,
+      created_by: userProfile.id
+    });
+
+    if (error) alert(error.message);
+    else fetchHistory();
   };
 
   return (
-    <div className="space-y-4">
-      <h2 className="text-lg font-semibold">ポイント登録（{month}）</h2>
-      <div className="flex gap-3 items-end">
-        <div>
-          <label className="block text-sm">対象月</label>
-          <input className="border rounded px-2 py-1" value={month} onChange={e=>setMonth(e.target.value)} />
+    <AuthGate>
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">
+          <h2 className="text-2xl font-bold">ポイント登録</h2>
+          <input 
+            type="date" 
+            value={selectedDate} 
+            onChange={(e) => {
+              setSelectedDate(e.target.value);
+              setCurrentMonth(e.target.value.slice(0, 7));
+            }}
+            className="border rounded px-2 py-1"
+          />
         </div>
-        <div>
-          <label className="block text-sm">日付</label>
-          <input type="date" className="border rounded px-2 py-1" value={date} onChange={e=>setDate(e.target.value)} />
+
+        <MonthlySummary 
+          childId={childId} 
+          month={currentMonth} 
+          isParent={userProfile?.role === 'parent'} 
+        />
+
+        {userProfile?.role === 'parent' && (
+          <>
+            <div className="grid grid-cols-2 gap-3">
+              {activeRules.map((rule) => (
+                <button
+                  key={rule.id}
+                  onClick={() => handleAddPoint(rule)}
+                  className="p-4 rounded-lg border bg-white hover:bg-gray-50 text-left shadow-sm transition"
+                >
+                  <div className="font-bold">{rule.label}</div>
+                  <div className="text-indigo-600 font-bold">+{rule.points} pt</div>
+                </button>
+              ))}
+            </div>
+
+            <Card title="特別ボーナス / ペナルティ">
+              <form 
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const form = e.target as any;
+                  handleAdhocPoint(Number(form.points.value), form.note.value);
+                  form.reset();
+                }} 
+                className="flex gap-2 items-end"
+              >
+                <div className="flex-1">
+                  <label className="block text-xs text-gray-500">理由</label>
+                  <input name="note" type="text" required className="w-full border rounded px-2 py-1" />
+                </div>
+                <div className="w-20">
+                  <label className="block text-xs text-gray-500">Pt</label>
+                  <input name="points" type="number" required className="w-full border rounded px-2 py-1" />
+                </div>
+                <Button type="submit">登録</Button>
+              </form>
+            </Card>
+          </>
+        )}
+
+        <div className="mt-8">
+          <h3 className="font-bold text-lg mb-4">履歴 ({currentMonth})</h3>
+          <div className="space-y-2">
+            {history.map((entry) => (
+              <div key={entry.id} className="flex justify-between items-center p-3 bg-gray-50 rounded border">
+                <div>
+                  <div className="font-bold">{entry.note || entry.rule_snapshot?.label || '不明なポイント'}</div>
+                  <div className="text-xs text-gray-500">{entry.occurs_on}</div>
+                </div>
+                <div className={`font-bold ${entry.delta_points > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  {entry.delta_points > 0 ? '+' : ''}{entry.delta_points} pt
+                </div>
+              </div>
+            ))}
+            {history.length === 0 && <p className="text-center text-gray-500">履歴がありません</p>}
+          </div>
         </div>
-        <div>
-          <label className="block text-sm">ルール</label>
-          <select className="border rounded px-2 py-1" value={snapshotId} onChange={e=>setSnapshotId(e.target.value)}>
-            {snapshots.map(s => <option key={s.id} value={s.id}>{s.label}（{s.points}点）</option>)}
-          </select>
-        </div>
-        <div>
-          <label className="block text-sm">加減点</label>
-          <input type="number" className="border rounded px-2 py-1 w-24" value={delta} onChange={e=>setDelta(parseInt(e.target.value||'0'))} />
-        </div>
-        <div>
-          <label className="block text-sm">メモ</label>
-          <input className="border rounded px-2 py-1" value={note} onChange={e=>setNote(e.target.value)} />
-        </div>
-        <Button onClick={add} disabled={!snapshotId || summary?.status==='finalized'}>登録</Button>
-        <Button onClick={closeMonth} disabled={summary?.status==='finalized'}>当月を締める</Button>
       </div>
-
-      {summary && (
-        <Card title="月次サマリー">
-          <p className="text-sm">状態: <b>{summary.status}</b> / 合計: <b>{summary.total_points}</b> pt / 金額: <b>{fmtJPY(summary.total_yen)}</b></p>
-        </Card>
-      )}
-
-      <Card title="履歴">
-        <ul className="text-sm space-y-1">
-          {entries.map(e => (
-            <li key={e.id} className="flex justify-between border-b py-1">
-              <span>{e.occurs_on} / {e.note || '(no note)'} </span>
-              <span>{e.delta_points} pt</span>
-            </li>
-          ))}
-          {entries.length===0 && <p className="text-sm text-gray-500">履歴なし</p>}
-        </ul>
-      </Card>
-    </div>
+    </AuthGate>
   );
 }

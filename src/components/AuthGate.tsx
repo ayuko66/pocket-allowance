@@ -1,30 +1,47 @@
 'use client';
+
 import { useEffect, useState } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
 import { supabaseBrowser } from '@/lib/supabase-browser';
-import { Button } from './UI';
+import { Session } from '@supabase/supabase-js';
 
 export default function AuthGate({ children }: { children: React.ReactNode }) {
-  const sb = supabaseBrowser();
-  const [ready, setReady] = useState(false);
-  const [user, setUser] = useState<any>(null);
+  const [session, setSession] = useState<Session | null>(null);
+  const [loading, setLoading] = useState(true);
+  const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
-    sb.auth.getUser().then(({ data }) => { setUser(data.user); setReady(true); });
-    const { data: sub } = sb.auth.onAuthStateChange((_e, s) => setUser(s?.user ?? null));
-    return () => sub.subscription.unsubscribe();
-  }, []);
+    const supabase = supabaseBrowser();
+    
+    const getSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      setSession(session);
+      setLoading(false);
+    };
 
-  if (!ready) return <div className="text-sm text-gray-500">Loading...</div>;
-  if (!user) return (
-    <div className="space-y-2">
-      <p className="text-sm">ログインしてください（メールリンク式が簡単です）。</p>
-      <Button onClick={async () => {
-        const email = prompt('メールアドレスを入力');
-        if (!email) return;
-        await sb.auth.signInWithOtp({ email, options: { emailRedirectTo: location.origin } });
-        alert('メールを確認してください。');
-      }}>メールでログイン</Button>
-    </div>
-  );
+    getSession();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      setLoading(false);
+      if (!session && pathname !== '/') {
+        router.push('/');
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [router, pathname]);
+
+  if (loading) {
+    return <div className="flex min-h-screen items-center justify-center">Loading...</div>;
+  }
+
+  // If not logged in and not on login page, don't render children (redirect handled in effect)
+  // But if on login page ('/'), render children (which is the login form)
+  if (!session && pathname !== '/') {
+    return null; 
+  }
+
   return <>{children}</>;
 }
