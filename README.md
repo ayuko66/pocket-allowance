@@ -1,120 +1,102 @@
-# Pocket Allowance MVP (Next.js + Supabase + Docker)
+# Pocket Allowance MVP
 
-親子で使うポイント制お小遣い管理アプリ（最小実装版）
+親子で使うポイント制お小遣い管理アプリの MVP です。親が月ごとのルールを設定し、子どもの行動に応じてポイントを記録し、月末に確定した合計ポイントを円換算して翌月のお小遣いの目安にします。
 
-## 📝 概要
+本リポジトリでは、README を導入と運用の入口とし、詳細仕様は `docs/` 配下を正本として管理します。機能や構成の変更時は、先にドキュメントを更新してから実装を変更します。
 
-Pocket Allowance MVP は、親と子でルールを設定し、行動や成果に応じてポイントを付与・減点し、翌月のお小遣い額を決定するアプリです。
-まずは家族内での試験運用を目的とし、Next.js + Supabase + TailwindCSS による Web アプリとして構築しています。
+## 仕様書
 
-## 🧩 主な機能
+- [MVP仕様](./docs/specification.md)
+- [画面仕様](./docs/screens.md)
+- [データ設計](./docs/data-model.md)
 
-- **認証**
-Supabase Auth による Magic Link ログイン
-- **アカウント構成**
-親アカウント・子アカウントの2種。多対多で紐づけ可能
-- **ルール管理**
-親が月ごとに最大20件までルールを登録。子と親の両方の承認が必要
-- **ポイント登録**
-親が日付・ルールごとに加点/減点を登録
-- **ポイント換算**
-各子どもごとに「1pt = ○円」の換算レートを設定可能
-- **月締め処理**
-月末に親が承認してポイントを確定。以後は編集不可
-- **ポイント履歴**
-月ごとに行動履歴・ポイント変動を閲覧可能
+## 機能概要
 
-- **承認通知**
-未承認ルールがある場合にバッジ表示（将来は通知対応予定）
+- Supabase Auth の Magic Link ログイン
+- 親アカウント / 子アカウントの 2 ロール
+- 招待コードによる世帯参加
+- 1 世帯あたり親権限は最大 2 名
+- 親子の多対多リンク
+- 月ごとのルール登録と親子承認
+- 親によるポイント加点 / 減点
+- 子ごとの換算レート設定
+- 月締めと月次確定
+- 操作ログの保存
 
+## 技術スタック
 
-## 📁 構成
+- Next.js 14 App Router
+- TypeScript / React
+- Tailwind CSS
+- Supabase Auth / PostgreSQL
+- Docker Compose
+
+## ディレクトリ構成
 
 ```text
-pocket-allowance-mvp/
-├── docker-compose.yml       # Webアプリ + Node + Supabase接続設定
-├── .env.example              # 環境変数テンプレート
+pocket-allowance/
+├── docker-compose.yml
+├── Dockerfile
+├── .env.example
 ├── supabase/
-│   ├── schema.sql            # テーブル・RLS・ポリシー定義
-│   └── seed.sql              # （任意）親子デモデータ挿入
+│   ├── schema.sql
+│   └── seed.sql
+├── docs/
+│   ├── specification.md
+│   ├── screens.md
+│   └── data-model.md
 ├── src/
 │   ├── app/
-│   │   ├── layout.tsx        # 全体レイアウト（AppShell読込）
-│   │   ├── page.tsx          # トップページ（ログインなど）
-│   │   ├── children/         # 親用：子一覧
-│   │   ├── rules/[childId]/  # ルール管理画面
-│   │   ├── points/[childId]/ # ポイント登録画面
-│   │   └── api/              # APIエンドポイント
-│   ├── components/           # 共通UI, Header, AuthGateなど
-│   ├── lib/                  # Supabaseクライアントなど
-│   └── styles/
-│       └── globals.css       # Tailwindスタイル
+│   ├── components/
+│   └── lib/
 └── README.md
-    
- ```
-## 🛠️ 技術スタック
-## カテゴリ
+```
 
-### 技術
+## 環境変数
 
-#### フロントエンド
+`.env.example` を `.env` にコピーして設定します。
 
-- Next.js 14（App Router構成）
-- UIスタイル
-  - Tailwind CSS
-- バックエンド
-  - Supabase（PostgreSQL + Auth）
-- 開発環境
-  - Docker Compose（Node 20 + npm）
-- 言語
-  - TypeScript / React（Client & Server Components）
+```env
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+```
 
+## セットアップ
 
-## 📊 データベース設計
-| テーブル名 | 目的 |
-| --- | --- |
-| app_user | 親・子ユーザーの基本情報（role, name, uidなど） |
-| link_parent_child | 親子の紐づけ（多対多） |
-| rule_snapshot | ルール定義（月単位、承認状態込み） |
-| rule_approval | 親・子のルール承認履歴 |
-| point_log | 日々のポイント加減履歴 |
-| month_summary | 各月の合計ポイント・換算額 |
-| child_settings | 各子どもの個別設定（円換算など） |
+### 1. Supabase を準備する
 
+1. Supabase でプロジェクトを作成する
+2. Supabase Dashboard の `Auth` → `Email Templates` → `Magic Link` で件名を設定する
+   - 推奨件名: `【ポイント制お小遣いアプリ】ログインリンク`
+3. SQL Editor で `supabase/schema.sql` を実行する
+4. 必要なら `supabase/seed.sql` を実行する
 
-## 🧰 開発環境セットアップ
+注意:
+既存の古いスキーマのままアプリを起動すると、初期登録時に `Could not find the table 'public.household' in the schema cache` が発生します。その場合は、現在の [supabase/schema.sql](/Users/ayuko/Documents/projects/repos/pocket-allowance/supabase/schema.sql) を Supabase SQL Editor で再実行してください。
+
+### 2. Docker で起動する
 
 ```bash
 docker compose up --build
 ```
 
-ブラウザで http://localhost:3000 にアクセス
+アプリは `http://localhost:3000` で確認できます。
 
-## 🖥️ 画面一覧
+## 画面一覧
 
-| 画面  | URL  | 主な機能  |
-| --- | --- | --- |
-| トップ  | /        | ログイン・ログアウト  |
-| 子一覧  | /children | 親アカウント用、紐づく子の一覧  |
-| ルール管理  | /rules/[childId] | 月ごとのルール登録・承認  |
-| ポイント登録  | /points/[childId] | 加点/減点登録・月締め  |
-| APIルート  | /api/... | Supabaseアクセスラッパー  |
+- `/` : ログイン、初期登録、ダッシュボード
+- `/children` : 親用の子ども一覧
+- `/rules/[childId]` : 月次ルール管理と承認
+- `/points/[childId]` : ポイント登録、履歴、月締め
+- `/api/*` : 認証済みサーバー API
 
+## 開発方針
 
-## 🛠️ 使い方フロー
-1. 親がルール登録 → 子が承認 → 親が承認 → ルールactive化
-2. 親が「洗濯物をたたむ」を選択し1pt付与
-3. 月末に親が「締める」→ 確定ポイント算出
-4. 翌月のお小遣い（円）を表示
+- 仕様変更は `docs/` を先に更新する
+- Docker 環境を前提に実行する
+- 日本語を基本言語とする
+- MVP では 1 世帯 1 グループ運用を前提とする
 
+## ライセンス
 
-## 🚧 今後の拡張予定
-*   前月ルールの自動コピー
-*   通知（未承認ルールのリマインド）
-*   グラフによる推移表示
-*   オフライン対応（PWA）
-*   家族間共有リンク（QRコード生成）
-
-## 🧾 LICENSE
 MIT License
-（家族内・教育目的での利用・改変・再配布を自由に許可）
